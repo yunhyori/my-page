@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-900 퀴즈</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+
+        .quiz-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .question {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .question-text {
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .options {
+            margin-left: 20px;
+        }
+
+        .option {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .option:hover {
+            background-color: #f0f0f0;
+        }
+
+        .option.correct-answer {
+            background-color: #e6ffe6;
+            border-left: 3px solid #006400;
+        }
+
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            font-weight: bold;
+        }
+
+        .correct {
+            background-color: #e6ffe6;
+            color: #006400;
+            border: 1px solid #006400;
+        }
+
+        .incorrect {
+            background-color: #ffe6e6;
+            color: #640000;
+            border: 1px solid #640000;
+        }
+
+        .explanation {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 3px solid #0078d4;
+            display: none;
+        }
+
+        button {
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #006cbd;
+        }
+
+        @media (max-width: 600px) {
+            .quiz-container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>AI-900 퀴즈</h1>
+        <div id="questions"></div>
+        <div class="button-container">
+            <button onclick="checkAnswers()" id="checkButton">정답 확인</button>
+            <button onclick="resetQuiz()" id="resetButton">리셋</button>
+            <!-- <button onclick="showExplanations()" id="explainButton">설명 보기</button> -->
+        </div>
+    </div>
+    <script src="quizData.inc.js"></script>
+    <script>
+       let currentQuestions = [];
+
+        function initializeQuiz() {
+            currentQuestions = [...quizData];
+            displayQuestions();
+        }
+
+        function displayQuestions() {
+    const questionsContainer = document.getElementById('questions');
+    questionsContainer.innerHTML = '';
+
+    currentQuestions.forEach((q, index) => {
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question';
+        let optionsHTML = '';
+
+        if (q.type === 'radio') {
+            optionsHTML = q.options.map((option, i) => `
+                <div class="option">
+                    <input type="radio" name="q${index}" value="${i}" id="q${index}o${i}">
+                    <label for="q${index}o${i}">${option.value}</label>
+                </div>
+            `).join('');
+        } else if (q.type === 'checkbox') {
+            optionsHTML = q.options.map((option, i) => `
+                <div class="option">
+                    <input type="checkbox" name="q${index}o${i}" id="q${index}o${i}">
+                    <label for="q${index}o${i}">${option.value}</label>
+                </div>
+            `).join('');
+        }
+
+        questionDiv.innerHTML = `
+            <div class="question-text">문제 ${index + 1}: ${q.question}</div>
+            <div class="options">${optionsHTML}</div>
+            <div class="result" id="result${index}"></div>
+            <div class="explanation" id="explanation${index}">${q.explanation}</div>
+            <button onclick="checkAnswer(${index})">정답 확인</button>
+            <button onclick="resetQuestion(${index})">리셋</button>
+        `;
+        questionsContainer.appendChild(questionDiv);
+    });
+}
+
+        function checkAnswers() {
+    currentQuestions.forEach((q, index) => {
+        const resultDiv = document.getElementById(`result${index}`);
+        resultDiv.style.display = 'block';
+        let correct = false;
+        let correctAnswers = [];
+
+        // 이전 하이라이트 제거
+        document.querySelectorAll(`.question:nth-child(${index + 1}) .option`)
+            .forEach(opt => opt.classList.remove('correct-answer'));
+
+        if (q.type === 'radio') {
+            const selected = document.querySelector(`input[name="q${index}"]:checked`);
+            correctAnswers.push(q.options[q.correct].value);
+            
+            // 선택된 답안이 있는 경우만 정답 체크
+            if (selected) {
+                correct = parseInt(selected.value) === q.correct;
+            }
+            
+            // 항상 정답 표시
+            document.querySelector(`.question:nth-child(${index + 1}) .option:nth-child(${q.correct + 1})`)
+                .classList.add('correct-answer');
+            
+        } else if (q.type === 'checkbox') {
+            const checkedOptions = Array.from(document.querySelectorAll(`input[name^="q${index}o"]:checked`))
+                .map(input => parseInt(input.id.replace(`q${index}o`, '')));
+            
+            // 모든 정답 수집
+            q.correct.forEach(correctIndex => {
+                correctAnswers.push(q.options[correctIndex].value);
+                document.querySelector(`.question:nth-child(${index + 1}) .option:nth-child(${correctIndex + 1})`)
+                    .classList.add('correct-answer');
+            });
+            
+            // 선택된 답안이 있는 경우만 정답 체크
+            if (checkedOptions.length > 0) {
+                correct = checkedOptions.length === q.correct.length && 
+                         q.correct.every(val => checkedOptions.includes(val));
+            }
+        }
+
+        // 결과 표시
+        let message = '';
+        if (correct) {
+            message = '정답입니다!';
+        } else {
+            if ((q.type === 'radio' && !document.querySelector(`input[name="q${index}"]:checked`)) ||
+                (q.type === 'checkbox' && !document.querySelector(`input[name^="q${index}o"]:checked`))) {
+                message = '답을 선택하지 않았습니다.';
+            } else {
+                message = '틀렸습니다.';
+            }
+            message += `<br>정답: ${correctAnswers.join(', ')}`;
+        }
+        
+        resultDiv.innerHTML = message;
+        resultDiv.className = `result ${correct ? 'correct' : 'incorrect'}`;
+    });
+}
+        // function showExplanations() {
+        //     document.querySelectorAll('.explanation').forEach(exp => {
+        //         exp.style.display = exp.style.display === 'block' ? 'none' : 'block';
+        //     });
+        // }
+
+        function resetQuiz() {
+            initializeQuiz();
+            document.querySelectorAll('.result, .explanation').forEach(el => {
+                el.style.display = 'none';
+                if (el.classList.contains('result')) {
+                    el.innerHTML = '';
+                }
+            });
+        }
+
+        function checkAnswer(index) {
+    const q = currentQuestions[index];
+    const resultDiv = document.getElementById(`result${index}`);
+    resultDiv.style.display = 'block';
+    let correct = false;
+    let correctAnswers = [];
+
+    // 이전 하이라이트 제거
+    document.querySelectorAll(`.question:nth-child(${index + 1}) .option`)
+        .forEach(opt => opt.classList.remove('correct-answer'));
+
+    if (q.type === 'radio') {
+        const selected = document.querySelector(`input[name="q${index}"]:checked`);
+        correctAnswers.push(q.options[q.correct].value);
+        
+        if (selected) {
+            correct = parseInt(selected.value) === q.correct;
+        }
+        
+        document.querySelector(`.question:nth-child(${index + 1}) .option:nth-child(${q.correct + 1})`)
+            .classList.add('correct-answer');
+        
+    } else if (q.type === 'checkbox') {
+        const checkedOptions = Array.from(document.querySelectorAll(`input[name^="q${index}o"]:checked`))
+            .map(input => parseInt(input.id.replace(`q${index}o`, '')));
+        
+        q.correct.forEach(correctIndex => {
+            correctAnswers.push(q.options[correctIndex].value);
+            document.querySelector(`.question:nth-child(${index + 1}) .option:nth-child(${correctIndex + 1})`)
+                .classList.add('correct-answer');
+        });
+
+        if (checkedOptions.length > 0) {
+            correct = checkedOptions.length === q.correct.length && 
+                     q.correct.every(val => checkedOptions.includes(val));
+        }
+    }
+
+    let message = '';
+    if (correct) {
+        message = '정답입니다!';
+    } else {
+        if ((q.type === 'radio' && !document.querySelector(`input[name="q${index}"]:checked`)) ||
+            (q.type === 'checkbox' && !document.querySelector(`input[name^="q${index}o"]:checked`))) {
+            message = '답을 선택하지 않았습니다.';
+        } else {
+            message = '틀렸습니다.';
+        }
+        message += `<br>정답: ${correctAnswers.join(', ')}`;
+    }
+    
+    resultDiv.innerHTML = message;
+    resultDiv.className = `result ${correct ? 'correct' : 'incorrect'}`;
+}
+function resetQuestion(index) {
+    const q = currentQuestions[index];
+
+    // 체크 해제
+    document.querySelectorAll(`input[name^="q${index}o"]`).forEach(input => input.checked = false);
+
+    // 결과 및 정답 표시 제거
+    const resultDiv = document.getElementById(`result${index}`);
+    resultDiv.style.display = 'none';
+    resultDiv.innerHTML = '';
+
+    // 정답 하이라이트 제거
+    document.querySelectorAll(`.question:nth-child(${index + 1}) .option`)
+        .forEach(opt => opt.classList.remove('correct-answer'));
+}
+
+
+        document.addEventListener('DOMContentLoaded', initializeQuiz);
+    </script>
+</body>
